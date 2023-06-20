@@ -290,7 +290,7 @@ typedef UIViewController *(^FLEXNetworkDetailRowSelectionFuture)(void);
         postBodyRow.selectionFuture = ^UIViewController * () {
             // Show the body if we can
             NSString *contentType = [transaction.request valueForHTTPHeaderField:@"Content-Type"];
-            UIViewController *detailViewController = [self detailViewControllerForMIMEType:contentType data:[self postBodyDataForTransaction:transaction]];
+            UIViewController *detailViewController = [self detailViewControllerForMIMEType:contentType data:[self postBodyDataForTransaction:transaction] response:nil];
             if (detailViewController) {
                 detailViewController.title = @"Request Body";
                 return detailViewController;
@@ -336,7 +336,7 @@ typedef UIViewController *(^FLEXNetworkDetailRowSelectionFuture)(void);
             // Show the response if we can
             NSString *contentType = transaction.response.MIMEType;
             if (responseData) {
-                UIViewController *bodyDetails = [self detailViewControllerForMIMEType:contentType data:responseData];
+                UIViewController *bodyDetails = [self detailViewControllerForMIMEType:contentType data:responseData response:transaction.response];
                 if (bodyDetails) {
                     bodyDetails.title = @"Response";
                     return bodyDetails;
@@ -424,14 +424,14 @@ typedef UIViewController *(^FLEXNetworkDetailRowSelectionFuture)(void);
         if ([contentType hasPrefix:@"application/x-www-form-urlencoded"]) {
             NSData *body = [self postBodyDataForTransaction:transaction];
             NSString *bodyString = [[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding];
-            postBodySection.rows = [self networkDetailRowsFromQueryItems:[FLEXUtility itemsFromQueryString:bodyString]];
+            postBodySection.rows = [self networkDetailRowsFromQueryItems:[FLEXUtility itemsFromQueryString:bodyString request:transaction.request]];
         }
     }
     return postBodySection;
 }
 
 + (FLEXNetworkDetailSection *)queryParametersSectionForTransaction:(FLEXHTTPTransaction *)transaction {
-    NSArray<NSURLQueryItem *> *queries = [FLEXUtility itemsFromQueryString:transaction.request.URL.query];
+    NSArray<NSURLQueryItem *> *queries = [FLEXUtility itemsFromQueryString:transaction.request.URL.query request:transaction.request];
     FLEXNetworkDetailSection *querySection = [FLEXNetworkDetailSection new];
     querySection.title = @"Query Parameters";
     querySection.rows = [self networkDetailRowsFromQueryItems:queries];
@@ -481,7 +481,7 @@ typedef UIViewController *(^FLEXNetworkDetailRowSelectionFuture)(void);
     return [rows copy];
 }
 
-+ (UIViewController *)detailViewControllerForMIMEType:(NSString *)mimeType data:(NSData *)data {
++ (UIViewController *)detailViewControllerForMIMEType:(NSString *)mimeType data:(NSData *)data response:(NSURLResponse *)response {
     FLEXCustomContentViewerFuture makeCustomViewer = FLEXManager.sharedManager.customContentTypeViewers[mimeType.lowercaseString];
 
     if (makeCustomViewer) {
@@ -495,7 +495,7 @@ typedef UIViewController *(^FLEXNetworkDetailRowSelectionFuture)(void);
     // FIXME (RKO): Don't rely on UTF8 string encoding
     UIViewController *detailViewController = nil;
     if ([FLEXUtility isValidJSONData:data]) {
-        NSString *prettyJSON = [FLEXUtility prettyJSONStringFromData:data];
+        NSString *prettyJSON = [FLEXUtility prettyJSONStringFromData:data response:response];
         if (prettyJSON.length > 0) {
             detailViewController = [[FLEXWebViewController alloc] initWithText:prettyJSON];
         }

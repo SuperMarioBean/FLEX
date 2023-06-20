@@ -263,7 +263,7 @@ typedef NS_ENUM(NSUInteger, FLEXFileBrowserSortAttribute) {
         // Special case keyed archives, json, and plists to get more readable data.
         NSString *prettyString = nil;
         if ([pathExtension isEqualToString:@"json"]) {
-            prettyString = [FLEXUtility prettyJSONStringFromData:fileData];
+            prettyString = [FLEXUtility prettyJSONStringFromData:fileData response:nil];
         } else {
             // Regardless of file extension...
             

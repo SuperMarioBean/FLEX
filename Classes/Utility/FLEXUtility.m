@@ -13,6 +13,230 @@
 #import <ImageIO/ImageIO.h>
 #import <objc/runtime.h>
 #import <zlib.h>
+#include <CommonCrypto/CommonCrypto.h>
+#include <zlib.h>
+
+/**
+ Provide hash, encrypt, encode and some common method for `NSData`.
+ */
+@interface NSData (FMTAdd)
+
+/**
+ Returns an NSString for base64 encoded.
+ */
+- (nullable NSString *)base64EncodedString;
+
+/**
+ Returns an NSData from base64 encoded string.
+ 
+ @warning This method has been implemented in iOS7.
+ 
+ @param base64EncodedString  The encoded string.
+ */
++ (nullable NSData *)dataWithBase64EncodedString:(NSString *)base64EncodedString;
+
+#pragma mark - Encrypt and Decrypt
+///=============================================================================
+/// @name Encrypt and Decrypt
+///=============================================================================
+
+/**
+ Returns an encrypted NSData using AES.
+ 
+ @param key   A key length of 16, 24 or 32 (128, 192 or 256bits).
+ 
+ @param iv    An initialization vector length of 16(128bits).
+              Pass nil when you don't want to use iv.
+ 
+ @return      An NSData encrypted, or nil if an error occurs.
+ */
+- (nullable NSData *)aes256EncryptWithKey:(NSData *)key iv:(nullable NSData *)iv;
+
+/**
+ Returns an decrypted NSData using AES.
+ 
+ @param key   A key length of 16, 24 or 32 (128, 192 or 256bits).
+ 
+ @param iv    An initialization vector length of 16(128bits).
+              Pass nil when you don't want to use iv.
+ 
+ @return      An NSData decrypted, or nil if an error occurs.
+ */
+- (nullable NSData *)aes256DecryptWithkey:(NSData *)key iv:(nullable NSData *)iv;
+
+@end
+
+@implementation NSData (YYAdd)
+
+static const char base64EncodingTable[64]
+= "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const short base64DecodingTable[256] = {
+    -2, -2, -2, -2, -2, -2, -2, -2, -2, -1, -1, -2,  -1,  -1, -2, -2,
+    -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2,  -2,  -2, -2, -2,
+    -1, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 62,  -2,  -2, -2, 63,
+    52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -2, -2,  -2,  -2, -2, -2,
+    -2, 0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10,  11,  12, 13, 14,
+    15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -2,  -2,  -2, -2, -2,
+    -2, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,  37,  38, 39, 40,
+    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -2,  -2,  -2, -2, -2,
+    -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2,  -2,  -2, -2, -2,
+    -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2,  -2,  -2, -2, -2,
+    -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2,  -2,  -2, -2, -2,
+    -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2,  -2,  -2, -2, -2,
+    -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2,  -2,  -2, -2, -2,
+    -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2,  -2,  -2, -2, -2,
+    -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2,  -2,  -2, -2, -2,
+    -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2,  -2,  -2, -2, -2
+};
+
+- (NSString *)base64EncodedString {
+    NSUInteger length = self.length;
+    if (length == 0)
+        return @"";
+    
+    NSUInteger out_length = ((length + 2) / 3) * 4;
+    uint8_t *output = malloc(((out_length + 2) / 3) * 4);
+    if (output == NULL)
+        return nil;
+    
+    const char *input = self.bytes;
+    NSInteger i, value;
+    for (i = 0; i < length; i += 3) {
+        value = 0;
+        for (NSInteger j = i; j < i + 3; j++) {
+            value <<= 8;
+            if (j < length) {
+                value |= (0xFF & input[j]);
+            }
+        }
+        NSInteger index = (i / 3) * 4;
+        output[index + 0] = base64EncodingTable[(value >> 18) & 0x3F];
+        output[index + 1] = base64EncodingTable[(value >> 12) & 0x3F];
+        output[index + 2] = ((i + 1) < length)
+        ? base64EncodingTable[(value >> 6) & 0x3F]
+        : '=';
+        output[index + 3] = ((i + 2) < length)
+        ? base64EncodingTable[(value >> 0) & 0x3F]
+        : '=';
+    }
+    
+    NSString *base64 = [[NSString alloc] initWithBytes:output
+                                                length:out_length
+                                              encoding:NSASCIIStringEncoding];
+    free(output);
+    return base64;
+}
+
++ (NSData *)dataWithBase64EncodedString:(NSString *)base64EncodedString {
+    NSInteger length = base64EncodedString.length;
+    const char *string = [base64EncodedString cStringUsingEncoding:NSASCIIStringEncoding];
+    if (string  == NULL)
+        return nil;
+    
+    while (length > 0 && string[length - 1] == '=')
+        length--;
+    
+    NSInteger outputLength = length * 3 / 4;
+    NSMutableData *data = [NSMutableData dataWithLength:outputLength];
+    if (data == nil)
+        return nil;
+    if (length == 0)
+        return data;
+    
+    uint8_t *output = data.mutableBytes;
+    NSInteger inputPoint = 0;
+    NSInteger outputPoint = 0;
+    while (inputPoint < length) {
+        char i0 = string[inputPoint++];
+        char i1 = string[inputPoint++];
+        char i2 = inputPoint < length ? string[inputPoint++] : 'A';
+        char i3 = inputPoint < length ? string[inputPoint++] : 'A';
+        
+        output[outputPoint++] = (base64DecodingTable[i0] << 2)
+        | (base64DecodingTable[i1] >> 4);
+        if (outputPoint < outputLength) {
+            output[outputPoint++] = ((base64DecodingTable[i1] & 0xf) << 4)
+            | (base64DecodingTable[i2] >> 2);
+        }
+        if (outputPoint < outputLength) {
+            output[outputPoint++] = ((base64DecodingTable[i2] & 0x3) << 6)
+            | base64DecodingTable[i3];
+        }
+    }
+    
+    return data;
+}
+
+
+- (NSData *)aes256EncryptWithKey:(NSData *)key iv:(NSData *)iv {
+    if (key.length != 16 && key.length != 24 && key.length != 32) {
+        return nil;
+    }
+    if (iv.length != 16 && iv.length != 0) {
+        return nil;
+    }
+    
+    NSData *result = nil;
+    size_t bufferSize = self.length + kCCBlockSizeAES128;
+    void *buffer = malloc(bufferSize);
+    if (!buffer) return nil;
+    size_t encryptedSize = 0;
+    CCCryptorStatus cryptStatus = CCCrypt(kCCEncrypt,
+                                          kCCAlgorithmAES128,
+                                          kCCOptionPKCS7Padding,
+                                          key.bytes,
+                                          key.length,
+                                          iv.bytes,
+                                          self.bytes,
+                                          self.length,
+                                          buffer,
+                                          bufferSize,
+                                          &encryptedSize);
+    if (cryptStatus == kCCSuccess) {
+        result = [[NSData alloc]initWithBytes:buffer length:encryptedSize];
+        free(buffer);
+        return result;
+    } else {
+        free(buffer);
+        return nil;
+    }
+}
+
+- (NSData *)aes256DecryptWithkey:(NSData *)key iv:(NSData *)iv {
+    if (key.length != 16 && key.length != 24 && key.length != 32) {
+        return nil;
+    }
+    if (iv.length != 16 && iv.length != 0) {
+        return nil;
+    }
+    
+    NSData *result = nil;
+    size_t bufferSize = self.length + kCCBlockSizeAES128;
+    void *buffer = malloc(bufferSize);
+    if (!buffer) return nil;
+    size_t encryptedSize = 0;
+    CCCryptorStatus cryptStatus = CCCrypt(kCCDecrypt,
+                                          kCCAlgorithmAES128,
+                                          kCCOptionPKCS7Padding,
+                                          key.bytes,
+                                          key.length,
+                                          iv.bytes,
+                                          self.bytes,
+                                          self.length,
+                                          buffer,
+                                          bufferSize,
+                                          &encryptedSize);
+    if (cryptStatus == kCCSuccess) {
+        result = [[NSData alloc]initWithBytes:buffer length:encryptedSize];
+        free(buffer);
+        return result;
+    } else {
+        free(buffer);
+        return nil;
+    }
+}
+
+@end
 
 BOOL FLEXConstructorsShouldRun() {
     #if FLEX_DISABLE_CTORS
@@ -330,7 +554,7 @@ BOOL FLEXConstructorsShouldRun() {
     return NO;
 }
 
-+ (NSArray<NSURLQueryItem *> *)itemsFromQueryString:(NSString *)query {
++ (NSArray<NSURLQueryItem *> *)itemsFromQueryString:(NSString *)query request:(NSURLRequest *)request {
     NSMutableArray<NSURLQueryItem *> *items = [NSMutableArray new];
 
     // [a=1, b=2, c=3]
@@ -341,7 +565,55 @@ BOOL FLEXConstructorsShouldRun() {
         if (components.count == 2) {
             NSString *key = components.firstObject.stringByRemovingPercentEncoding;
             NSString *value = components.lastObject.stringByRemovingPercentEncoding;
-
+            
+            NSString *host = request.URL.host;
+            if ([host hasSuffix:@"pixelplanettech.com"]) {
+                if ([key isEqualToString:@"request"]) {
+                    // decretyped request field
+                    NSString *encrypedString = value;
+                    NSData *key = nil;
+                    NSData *vi = nil;
+                    id o = nil;
+                    
+                    if ([host isEqualToString:@"account.pixelplanettech.com"]) {
+                        NSData *key = [@"sd0GS9vQVDeL6grX" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *iv = [@"r8owYuCDekUXWxyU" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
+                        o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                    } else if ([host isEqualToString:@"page.pixelplanettech.com"]) {
+                        NSData *key = [@"ABmlagLrKFaE6ypc" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *iv = [@"ILvc4mhfKaoiAe8L" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
+                        o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                    } else if ([host isEqualToString:@"pay.pixelplanettech.com"]) {
+                        NSData *key = [@"sd0GS9vQVDeL6grX" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *iv = [@"r8owYuCDekUXWxyU" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
+                        o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                    } else if ([host isEqualToString:@"mall.pixelplanettech.com"]) {
+                        NSData *key = [@"JvGeHqzMqkAwa4L1" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *iv = [@"x1wpMEhFljxQs898" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
+                        o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                    } else {
+                        // do nothing
+                    }
+                    
+                    // Thanks RaziPour1993
+                    value = [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:o
+                                                                                           options:NSJSONWritingPrettyPrinted
+                                                                                             error:NULL]
+                                                  encoding:NSUTF8StringEncoding];
+                    // NSJSONSerialization escapes forward slashes.
+                    // We want pretty json, so run through and unescape the slashes.prettyJSONStringFromData
+                    value = [value stringByReplacingOccurrencesOfString:@"\\/" withString:@"/"];
+                } else if ([key isEqualToString:@"cmdId"]) {
+                    // convert cmdId to 0x
+                    [items addObject:[NSURLQueryItem queryItemWithName:@"cmdId(hex)"
+                                                                 value:[NSString stringWithFormat:@"0x%2X", value.integerValue]]];
+                }
+            }
+            
             [items addObject:[NSURLQueryItem queryItemWithName:key value:value]];
         }
     }
@@ -349,11 +621,60 @@ BOOL FLEXConstructorsShouldRun() {
     return items.copy;
 }
 
-+ (NSString *)prettyJSONStringFromData:(NSData *)data {
++ (NSString *)prettyJSONStringFromData:(NSData *)data response:(NSURLResponse *)response {
     NSString *prettyString = nil;
     
     id jsonObject = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
     if ([NSJSONSerialization isValidJSONObject:jsonObject]) {
+        NSString *host = response.URL.host;
+        if ([host hasSuffix:@"pixelplanettech.com"]) {
+            NSString *encrypedString = nil;
+            NSData *key = nil;
+            NSData *vi = nil;
+            id o = nil;
+            
+            // decrypted
+            if ([host isEqualToString:@"account.pixelplanettech.com"]) {
+                NSString *encrypedString = jsonObject[@"response"];
+                NSData *key = [@"sd0GS9vQVDeL6grX" dataUsingEncoding:NSUTF8StringEncoding];
+                NSData *iv = [@"r8owYuCDekUXWxyU" dataUsingEncoding:NSUTF8StringEncoding];
+                NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
+                o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                NSMutableDictionary *d = [NSMutableDictionary dictionaryWithDictionary:jsonObject];
+                d[@"response"] = o;
+                jsonObject = [d copy];
+            } else if ([host isEqualToString:@"page.pixelplanettech.com"]) {
+                NSString *encrypedString = jsonObject[@"response"];
+                NSData *key = [@"ABmlagLrKFaE6ypc" dataUsingEncoding:NSUTF8StringEncoding];
+                NSData *iv = [@"ILvc4mhfKaoiAe8L" dataUsingEncoding:NSUTF8StringEncoding];
+                NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
+                o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                NSMutableDictionary *d = [NSMutableDictionary dictionaryWithDictionary:jsonObject];
+                d[@"response"] = o;
+                jsonObject = [d copy];
+            } else if ([host isEqualToString:@"pay.pixelplanettech.com"]) {
+                NSString *encrypedString = jsonObject[@"response"];
+                NSData *key = [@"sd0GS9vQVDeL6grX" dataUsingEncoding:NSUTF8StringEncoding];
+                NSData *iv = [@"r8owYuCDekUXWxyU" dataUsingEncoding:NSUTF8StringEncoding];
+                NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
+                o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                NSMutableDictionary *d = [NSMutableDictionary dictionaryWithDictionary:jsonObject];
+                d[@"response"] = o;
+                jsonObject = [d copy];
+            } else if ([host isEqualToString:@"mall.pixelplanettech.com"]) {
+                NSString *encrypedString = jsonObject[@"response"];
+                NSData *key = [@"JvGeHqzMqkAwa4L1" dataUsingEncoding:NSUTF8StringEncoding];
+                NSData *iv = [@"x1wpMEhFljxQs898" dataUsingEncoding:NSUTF8StringEncoding];
+                NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
+                o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                NSMutableDictionary *d = [NSMutableDictionary dictionaryWithDictionary:jsonObject];
+                d[@"response"] = o;
+                jsonObject = [d copy];
+            } else {
+                // do nothing
+            }
+        }
+        
         // Thanks RaziPour1993
         prettyString = [[NSString alloc]
             initWithData:[NSJSONSerialization
@@ -362,7 +683,7 @@ BOOL FLEXConstructorsShouldRun() {
             encoding:NSUTF8StringEncoding
         ];
         // NSJSONSerialization escapes forward slashes.
-        // We want pretty json, so run through and unescape the slashes.
+        // We want pretty json, so run through and unescape the slashes.prettyJSONStringFromData
         prettyString = [prettyString stringByReplacingOccurrencesOfString:@"\\/" withString:@"/"];
     } else {
         prettyString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
