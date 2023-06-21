@@ -569,38 +569,35 @@ BOOL FLEXConstructorsShouldRun() {
             NSString *host = request.URL.host;
             if ([host hasSuffix:@"pixelplanettech.com"]) {
                 if ([key isEqualToString:@"request"]) {
-                    // decretyped request field
-                    NSString *encrypedString = value;
-                    NSData *key = nil;
-                    NSData *vi = nil;
-                    id o = nil;
+                    id jsonObject = nil;
                     
                     if ([host isEqualToString:@"account.pixelplanettech.com"]) {
-                        NSData *key = [@"sd0GS9vQVDeL6grX" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *key2 = [@"sd0GS9vQVDeL6grX" dataUsingEncoding:NSUTF8StringEncoding];
                         NSData *iv = [@"r8owYuCDekUXWxyU" dataUsingEncoding:NSUTF8StringEncoding];
-                        NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
-                        o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                        NSData *e = [[NSData dataWithBase64EncodedString:value] aes256DecryptWithkey:key2 iv:iv];
+                        jsonObject = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
                     } else if ([host isEqualToString:@"page.pixelplanettech.com"]) {
-                        NSData *key = [@"ABmlagLrKFaE6ypc" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *key2 = [@"ABmlagLrKFaE6ypc" dataUsingEncoding:NSUTF8StringEncoding];
                         NSData *iv = [@"ILvc4mhfKaoiAe8L" dataUsingEncoding:NSUTF8StringEncoding];
-                        NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
-                        o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                        NSData *e = [[NSData dataWithBase64EncodedString:value] aes256DecryptWithkey:key2 iv:iv];
+                        jsonObject = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
                     } else if ([host isEqualToString:@"pay.pixelplanettech.com"]) {
-                        NSData *key = [@"sd0GS9vQVDeL6grX" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *key2 = [@"sd0GS9vQVDeL6grX" dataUsingEncoding:NSUTF8StringEncoding];
                         NSData *iv = [@"r8owYuCDekUXWxyU" dataUsingEncoding:NSUTF8StringEncoding];
-                        NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
-                        o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                        NSData *e = [[NSData dataWithBase64EncodedString:value] aes256DecryptWithkey:key2 iv:iv];
+                        jsonObject = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
                     } else if ([host isEqualToString:@"mall.pixelplanettech.com"]) {
-                        NSData *key = [@"JvGeHqzMqkAwa4L1" dataUsingEncoding:NSUTF8StringEncoding];
+                        NSData *key2 = [@"JvGeHqzMqkAwa4L1" dataUsingEncoding:NSUTF8StringEncoding];
                         NSData *iv = [@"x1wpMEhFljxQs898" dataUsingEncoding:NSUTF8StringEncoding];
-                        NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
-                        o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                        NSData *e = [[NSData dataWithBase64EncodedString:value] aes256DecryptWithkey:key2 iv:iv];
+                        jsonObject = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
                     } else {
-                        // do nothing
+                        NSData *e = [value dataUsingEncoding:NSUTF8StringEncoding];
+                        jsonObject = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
                     }
                     
                     // Thanks RaziPour1993
-                    value = [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:o
+                    value = [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:jsonObject
                                                                                            options:NSJSONWritingPrettyPrinted
                                                                                              error:NULL]
                                                   encoding:NSUTF8StringEncoding];
@@ -628,18 +625,13 @@ BOOL FLEXConstructorsShouldRun() {
     if ([NSJSONSerialization isValidJSONObject:jsonObject]) {
         NSString *host = response.URL.host;
         if ([host hasSuffix:@"pixelplanettech.com"]) {
-            NSString *encrypedString = nil;
-            NSData *key = nil;
-            NSData *vi = nil;
-            id o = nil;
-            
             // decrypted
             if ([host isEqualToString:@"account.pixelplanettech.com"]) {
                 NSString *encrypedString = jsonObject[@"response"];
                 NSData *key = [@"sd0GS9vQVDeL6grX" dataUsingEncoding:NSUTF8StringEncoding];
                 NSData *iv = [@"r8owYuCDekUXWxyU" dataUsingEncoding:NSUTF8StringEncoding];
                 NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
-                o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                id o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
                 NSMutableDictionary *d = [NSMutableDictionary dictionaryWithDictionary:jsonObject];
                 d[@"response"] = o;
                 jsonObject = [d copy];
@@ -648,7 +640,7 @@ BOOL FLEXConstructorsShouldRun() {
                 NSData *key = [@"ABmlagLrKFaE6ypc" dataUsingEncoding:NSUTF8StringEncoding];
                 NSData *iv = [@"ILvc4mhfKaoiAe8L" dataUsingEncoding:NSUTF8StringEncoding];
                 NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
-                o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                id o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
                 NSMutableDictionary *d = [NSMutableDictionary dictionaryWithDictionary:jsonObject];
                 d[@"response"] = o;
                 jsonObject = [d copy];
@@ -657,7 +649,7 @@ BOOL FLEXConstructorsShouldRun() {
                 NSData *key = [@"sd0GS9vQVDeL6grX" dataUsingEncoding:NSUTF8StringEncoding];
                 NSData *iv = [@"r8owYuCDekUXWxyU" dataUsingEncoding:NSUTF8StringEncoding];
                 NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
-                o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                id o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
                 NSMutableDictionary *d = [NSMutableDictionary dictionaryWithDictionary:jsonObject];
                 d[@"response"] = o;
                 jsonObject = [d copy];
@@ -666,7 +658,7 @@ BOOL FLEXConstructorsShouldRun() {
                 NSData *key = [@"JvGeHqzMqkAwa4L1" dataUsingEncoding:NSUTF8StringEncoding];
                 NSData *iv = [@"x1wpMEhFljxQs898" dataUsingEncoding:NSUTF8StringEncoding];
                 NSData *e = [[NSData dataWithBase64EncodedString:encrypedString] aes256DecryptWithkey:key iv:iv];
-                o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
+                id o = [NSJSONSerialization JSONObjectWithData:e options:0 error:NULL];
                 NSMutableDictionary *d = [NSMutableDictionary dictionaryWithDictionary:jsonObject];
                 d[@"response"] = o;
                 jsonObject = [d copy];
